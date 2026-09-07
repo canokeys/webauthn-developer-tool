@@ -14,7 +14,7 @@ const muted = Color(0xff677673);
 const line = Color(0xffdde5e2);
 const mono = TextStyle(
   fontFamily: 'monospace',
-  fontSize: 12,
+  fontSize: 14,
   height: 1.65,
   letterSpacing: 0,
 );
@@ -42,14 +42,14 @@ class WorkbenchApp extends StatelessWidget {
         onSurface: ink,
       ),
       textTheme: const TextTheme(
-        bodyMedium: TextStyle(fontSize: 14, letterSpacing: 0),
-        bodySmall: TextStyle(fontSize: 12, color: muted, letterSpacing: 0),
+        bodyMedium: TextStyle(fontSize: 16, letterSpacing: 0),
+        bodySmall: TextStyle(fontSize: 14, color: muted, letterSpacing: 0),
       ),
       inputDecorationTheme: InputDecorationTheme(
         isDense: true,
         filled: true,
         fillColor: Colors.white,
-        labelStyle: const TextStyle(color: muted, fontSize: 13),
+        labelStyle: const TextStyle(color: muted, fontSize: 15),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 15,
@@ -97,7 +97,6 @@ class _WorkbenchState extends State<Workbench> {
   final timeout = TextEditingController(text: '60000');
   final sm2Alg = TextEditingController(text: '-54');
   final sm2Curve = TextEditingController(text: '9');
-  final sm2Id = TextEditingController(text: '1234567812345678');
   final createExtensions = TextEditingController(text: '{"credProps":true}');
   final assertionExtensions = TextEditingController(text: '{}');
   TextEditingController get extensions =>
@@ -116,14 +115,16 @@ class _WorkbenchState extends State<Workbench> {
       rk = 'preferred',
       attachment = 'any',
       attestation = 'none';
-  String encoding = 'raw',
-      inspectorType = 'Credential JSON',
+  String inspectorType = 'Credential JSON',
       inputFormat = 'b64u',
       outputFormat = 'hex';
   String? selectedId;
   String status = '', rawResponse = '', decoded = '';
   String? inspectorError;
-  bool ready = false, busy = false, statusError = false, excludeExisting = true;
+  bool ready = false,
+      busy = false,
+      statusError = false,
+      excludeExisting = false;
   Map<String, dynamic>? lastReport;
 
   @override
@@ -141,7 +142,6 @@ class _WorkbenchState extends State<Workbench> {
       timeout,
       sm2Alg,
       sm2Curve,
-      sm2Id,
       createExtensions,
       assertionExtensions,
     ]) {
@@ -162,7 +162,6 @@ class _WorkbenchState extends State<Workbench> {
       timeout,
       sm2Alg,
       sm2Curve,
-      sm2Id,
       createExtensions,
       assertionExtensions,
       requestJson,
@@ -210,8 +209,8 @@ class _WorkbenchState extends State<Workbench> {
   Sm2Configuration get sm2 => Sm2Configuration(
     algorithm: int.parse(sm2Alg.text),
     curve: int.parse(sm2Curve.text),
-    id: sm2Id.text,
-    signatureEncoding: SignatureEncoding.values.byName(encoding),
+    id: '1234567812345678',
+    signatureEncoding: SignatureEncoding.raw,
     allowUnassignedIdentifiers: true,
   );
   CoseConfiguration get cose =>
@@ -338,7 +337,7 @@ class _WorkbenchState extends State<Workbench> {
       attestation = 'none';
       selectedId = null;
       mediation = 'optional';
-      excludeExisting = true;
+      excludeExisting = false;
       extensions.text = mode == 'create' ? '{"credProps":true}' : '{}';
       status = '';
     });
@@ -751,9 +750,20 @@ class _WorkbenchState extends State<Workbench> {
     _decodeInspector();
   }
 
-  void _notice(String value) => ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(value)));
+  void _notice(String value, {SnackBarAction? action}) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(value),
+          action: action,
+          persist: false,
+          duration: Duration(seconds: action == null ? 4 : 6),
+          showCloseIcon: true,
+        ),
+      );
+  }
+
   Future<void> _copy(String value) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (mounted) _notice('Copied');
@@ -769,7 +779,7 @@ class _WorkbenchState extends State<Workbench> {
     controller: c,
     enabled: !busy,
     maxLines: lines,
-    style: code ? mono : const TextStyle(fontSize: 14),
+    style: code ? mono : const TextStyle(fontSize: 16),
     decoration: InputDecoration(labelText: label, suffixIcon: suffix),
   );
   Widget _select(
@@ -782,7 +792,7 @@ class _WorkbenchState extends State<Workbench> {
     initialValue: options.contains(value) ? value : options.first,
     isExpanded: true,
     decoration: InputDecoration(labelText: label),
-    style: const TextStyle(fontSize: 13, color: ink),
+    style: const TextStyle(fontSize: 15, color: ink),
     items: options
         .map(
           (o) => DropdownMenuItem(
@@ -812,7 +822,7 @@ class _WorkbenchState extends State<Workbench> {
                 Text(
                   number,
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 13,
                     color: green,
                     fontWeight: FontWeight.w700,
                   ),
@@ -821,7 +831,7 @@ class _WorkbenchState extends State<Workbench> {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -875,7 +885,7 @@ class _WorkbenchState extends State<Workbench> {
                     ]
                     .map(
                       (a) => FilterChip(
-                        label: Text(a, style: const TextStyle(fontSize: 12)),
+                        label: Text(a, style: const TextStyle(fontSize: 14)),
                         selected: algorithms.contains(a),
                         selectedColor: const Color(0xffdef0e9),
                         backgroundColor: Colors.white,
@@ -906,13 +916,13 @@ class _WorkbenchState extends State<Workbench> {
                       width: 22,
                       child: Text(
                         '${i + 1}',
-                        style: const TextStyle(fontSize: 11, color: muted),
+                        style: const TextStyle(fontSize: 13, color: muted),
                       ),
                     ),
                     Expanded(
                       child: Text(
                         algorithms[i],
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: 14),
                       ),
                     ),
                     Text(
@@ -940,11 +950,6 @@ class _WorkbenchState extends State<Workbench> {
               _field('SM2 algorithm ID', sm2Alg, code: true),
               _field('SM2 curve ID', sm2Curve, code: true),
             ),
-            _field('SM2 user ID', sm2Id, code: true),
-            _select('Signature encoding', encoding, [
-              'raw',
-              'der',
-            ], (v) => encoding = v),
           ],
         ]),
       if (mode == 'get')
@@ -963,14 +968,14 @@ class _WorkbenchState extends State<Workbench> {
                 value: 'all',
                 child: Text(
                   'All saved credentials',
-                  style: TextStyle(fontSize: 13),
+                  style: TextStyle(fontSize: 15),
                 ),
               ),
               const DropdownMenuItem(
                 value: '*',
                 child: Text(
                   'Discoverable credential',
-                  style: TextStyle(fontSize: 13),
+                  style: TextStyle(fontSize: 15),
                 ),
               ),
               for (final c in matching)
@@ -979,7 +984,7 @@ class _WorkbenchState extends State<Workbench> {
                   child: Text(
                     '${c.username} · ${algorithmName(c.credential.publicKey.algorithmId)}',
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13),
+                    style: const TextStyle(fontSize: 15),
                   ),
                 ),
             ],
@@ -1022,8 +1027,8 @@ class _WorkbenchState extends State<Workbench> {
             contentPadding: EdgeInsets.zero,
             dense: true,
             title: const Text(
-              'Exclude saved credentials',
-              style: TextStyle(fontSize: 13),
+              'Exclude all saved credentials for this RP',
+              style: TextStyle(fontSize: 15),
             ),
             value: excludeExisting,
             onChanged: busy
@@ -1033,7 +1038,7 @@ class _WorkbenchState extends State<Workbench> {
         ],
         const Align(
           alignment: Alignment.centerLeft,
-          child: Text('Authenticator hints', style: TextStyle(fontSize: 12)),
+          child: Text('Authenticator hints', style: TextStyle(fontSize: 14)),
         ),
         Wrap(
           spacing: 6,
@@ -1041,7 +1046,7 @@ class _WorkbenchState extends State<Workbench> {
           children: ['security-key', 'client-device', 'hybrid']
               .map(
                 (hint) => FilterChip(
-                  label: Text(hint, style: const TextStyle(fontSize: 12)),
+                  label: Text(hint, style: const TextStyle(fontSize: 14)),
                   selected: hints.contains(hint),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
@@ -1092,7 +1097,7 @@ class _WorkbenchState extends State<Workbench> {
         ),
         ExpansionTile(
           tilePadding: EdgeInsets.zero,
-          title: const Text('Extension JSON', style: TextStyle(fontSize: 13)),
+          title: const Text('Extension JSON', style: TextStyle(fontSize: 15)),
           children: [
             _field('Extensions · JSON', extensions, code: true, lines: 8),
             const SizedBox(height: 12),
@@ -1125,7 +1130,7 @@ class _WorkbenchState extends State<Workbench> {
               child: Text(
                 v,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 15,
                   fontWeight: v == selected ? FontWeight.w600 : FontWeight.w400,
                   color: v == selected ? green : muted,
                 ),
@@ -1311,7 +1316,7 @@ class _WorkbenchState extends State<Workbench> {
             const Text(
               'DECODED DATA',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: muted,
               ),
@@ -1321,7 +1326,7 @@ class _WorkbenchState extends State<Workbench> {
               Padding(
                 padding: const EdgeInsets.only(left: 3),
                 child: ChoiceChip(
-                  label: Text(f, style: const TextStyle(fontSize: 11)),
+                  label: Text(f, style: const TextStyle(fontSize: 13)),
                   selected: outputFormat == f,
                   showCheckmark: false,
                   onSelected: (_) {
@@ -1365,7 +1370,7 @@ class _WorkbenchState extends State<Workbench> {
       text,
       style: const TextStyle(
         color: Color(0xffa33d2b),
-        fontSize: 12,
+        fontSize: 14,
         height: 1.6,
       ),
     ),
@@ -1378,7 +1383,7 @@ class _WorkbenchState extends State<Workbench> {
       children: [
         Icon(icon, size: 34, color: const Color(0xff9caeaa)),
         const SizedBox(height: 14),
-        Text(title, style: const TextStyle(color: muted, fontSize: 14)),
+        Text(title, style: const TextStyle(color: muted, fontSize: 16)),
       ],
     ),
   );
@@ -1411,7 +1416,7 @@ class _WorkbenchState extends State<Workbench> {
                     padding: const EdgeInsets.only(top: 12),
                     child: Text(
                       error!,
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                      style: const TextStyle(color: Colors.red, fontSize: 14),
                     ),
                   ),
               ],
@@ -1540,7 +1545,6 @@ class _WorkbenchState extends State<Workbench> {
                           if (saved.sm2 != null) {
                             sm2Alg.text = '${saved.sm2!.algorithm}';
                             sm2Curve.text = '${saved.sm2!.curve}';
-                            sm2Id.text = saved.sm2!.id;
                           }
                         });
                         _decodeInspector();
@@ -1556,7 +1560,7 @@ class _WorkbenchState extends State<Workbench> {
                 ),
                 Text(
                   '${saved.rpId} · ${algorithmName(saved.credential.publicKey.algorithmId)}',
-                  style: const TextStyle(color: muted, fontSize: 12),
+                  style: const TextStyle(color: muted, fontSize: 14),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -1572,11 +1576,11 @@ class _WorkbenchState extends State<Workbench> {
                   children: [
                     Text(
                       'Counter ${saved.credential.signCount}',
-                      style: const TextStyle(fontSize: 12),
+                      style: const TextStyle(fontSize: 14),
                     ),
                     Text(
                       saved.credential.backedUp ? 'Backed up' : 'Not backed up',
-                      style: const TextStyle(fontSize: 12, color: muted),
+                      style: const TextStyle(fontSize: 14, color: muted),
                     ),
                     TextButton.icon(
                       onPressed: busy
@@ -1608,20 +1612,17 @@ class _WorkbenchState extends State<Workbench> {
     });
     _persist();
     _syncRequest();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Local credential removed'),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () {
-            setState(
-              () =>
-                  credentials.insert(index.clamp(0, credentials.length), saved),
-            );
-            _persist();
-            _syncRequest();
-          },
-        ),
+    _notice(
+      'Local credential removed',
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () {
+          setState(
+            () => credentials.insert(index.clamp(0, credentials.length), saved),
+          );
+          _persist();
+          _syncRequest();
+        },
       ),
     );
   }
@@ -1656,13 +1657,13 @@ class _WorkbenchState extends State<Workbench> {
           ),
           title: Text(
             '${entry['operation'] == 'create' ? 'Create' : 'Assert'} · ${entry['durationMs']} ms',
-            style: const TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 16),
           ),
           subtitle: Text(
             entry['result'],
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: 14),
           ),
           trailing: IconButton(
             tooltip: 'Export request report',
@@ -1718,13 +1719,13 @@ class _WorkbenchState extends State<Workbench> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('$key', style: const TextStyle(fontSize: 12)),
+                    child: Text('$key', style: const TextStyle(fontSize: 14)),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     client.containsKey(key) ? 'Returned' : 'No client output',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 13,
                       color: client.containsKey(key) ? green : muted,
                     ),
                   ),
@@ -1881,7 +1882,7 @@ class _WorkbenchState extends State<Workbench> {
                       const SizedBox(width: 20),
                       const Text(
                         'WebAuthn Workbench',
-                        style: TextStyle(color: muted, fontSize: 14),
+                        style: TextStyle(color: muted, fontSize: 16),
                       ),
                     ],
                   ],
@@ -1942,7 +1943,7 @@ class _WorkbenchState extends State<Workbench> {
                                 child: Text(
                                   status,
                                   style: const TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 14,
                                     color: green,
                                   ),
                                 ),

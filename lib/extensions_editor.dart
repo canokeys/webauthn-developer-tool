@@ -87,7 +87,7 @@ class _ExtensionsEditorState extends State<ExtensionsEditor> {
   }) => SwitchListTile(
     dense: true,
     contentPadding: EdgeInsets.zero,
-    title: Text(label, style: const TextStyle(fontSize: 13)),
+    title: Text(label, style: const TextStyle(fontSize: 15)),
     value: value,
     onChanged: widget.enabled && enabled ? action : null,
   );
@@ -110,7 +110,7 @@ class _ExtensionsEditorState extends State<ExtensionsEditor> {
               child: Text(
                 v,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: 14),
               ),
             ),
           )
@@ -136,7 +136,7 @@ class _ExtensionsEditorState extends State<ExtensionsEditor> {
         controller: controller,
         enabled: widget.enabled && enabled,
         onChanged: action,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
         decoration: InputDecoration(
           labelText: label,
           suffixIcon: IconButton(
@@ -159,7 +159,7 @@ class _ExtensionsEditorState extends State<ExtensionsEditor> {
     } catch (_) {
       return const Text(
         'Correct the extension JSON to edit these fields.',
-        style: TextStyle(fontSize: 12, color: Colors.red),
+        style: TextStyle(fontSize: 14, color: Colors.red),
       );
     }
     final blob = ext['largeBlob'] is Map
@@ -261,7 +261,7 @@ class _ExtensionsEditorState extends State<ExtensionsEditor> {
               tilePadding: EdgeInsets.zero,
               title: const Text(
                 'Per-credential PRF inputs',
-                style: TextStyle(fontSize: 13),
+                style: TextStyle(fontSize: 15),
               ),
               children: [
                 for (final id in {
@@ -276,7 +276,7 @@ class _ExtensionsEditorState extends State<ExtensionsEditor> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'monospace',
-                        fontSize: 11,
+                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -305,7 +305,7 @@ class _ExtensionsEditorState extends State<ExtensionsEditor> {
                     padding: EdgeInsets.all(12),
                     child: Text(
                       'No allowed credentials',
-                      style: TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: 14),
                     ),
                   ),
               ],

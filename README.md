@@ -72,8 +72,20 @@ The RP ID follows the hostname, so production credentials are scoped to
 
 - Create/Assert with form and JSON options, ordered algorithms, RK/UV,
   attachment, attestation, extensions, timeout, allow/exclude credentials.
+  Registration defaults to an empty `excludeCredentials` list for repeated
+  testing on the same key. Enabling the exclusion checkbox includes every saved
+  credential for the RP, regardless of user ID; a key containing any of them
+  will reject registration with `InvalidStateError`. With discoverable
+  credentials, reusing the same RP and user ID may replace a device credential;
+  use a new WebAuthn user ID when testing separate accounts.
 - ES256, Ed25519, SM2 and ML-DSA-44/65/87, through fido2's Rust/WASM backend.
-- SM2 uses explicit algorithm/curve IDs, user ID and raw/DER selection.
+- SM2 uses explicit algorithm/curve IDs, fixed `raw` signature encoding
+  (64 bytes, two 32-byte integers `r || s`), and the default SM2 user ID
+  `1234567812345678` used to calculate ZA. This is separate from the editable
+  WebAuthn user ID. These verification parameters must match the authenticator; standard
+  WebAuthn does not send an SM2 user ID or signature encoding to the device.
+  Registration saves the SM2 verification profile with the credential, and
+  assertions reuse that saved profile.
   The default profile matches CanoKey: algorithm ID `-54`, curve ID `9`; set the profile matching
   the credential being tested. The library assigns `-48` to ML-DSA-44 and rejects
   that identifier for SM2.
