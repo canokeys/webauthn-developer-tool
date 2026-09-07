@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build:cloudflare": "bash scripts/cloudflare-build.sh",
-    "build": "flutter pub get && dart run fido2:setup --web --output=web/crypto && flutter build web --no-wasm-dry-run --no-web-resources-cdn",
+    "build": "flutter pub get && dart run fido2:setup --web --output=web/crypto && flutter build web --release --no-wasm-dry-run --no-web-resources-cdn && node scripts/optimize-web.mjs",
     "deploy": "npm run build && wrangler deploy",
     "preview": "wrangler dev"
   },

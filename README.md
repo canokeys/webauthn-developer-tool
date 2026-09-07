@@ -22,8 +22,8 @@ handled by the browser's native WebAuthn prompt.
 ## Build
 
 ```sh
-dart run fido2:setup --web --output=web/crypto
-flutter build web --no-wasm-dry-run
+npm ci
+npm run build
 ```
 
 Deploy `build/web/` including `crypto/web/`. Serve `.wasm` as `application/wasm`.
@@ -51,6 +51,13 @@ The deployment command regenerates fido2 WASM assets and builds Flutter with
 locally served CanvasKit resources before publishing. To check an existing
 build locally with Workers, run `npm run preview`. Generated assets, build
 output and Cloudflare credentials are excluded from Git.
+
+The build removes unused Skwasm/Wimp engines and engine symbol files, retaining
+all CanvasKit browser variants. Engine URLs include a content hash and receive
+one-year immutable caching through Workers Static Assets. Application entrypoints
+retain Cloudflare's default revalidation policy so new deployments take effect.
+Run the complete `npm run build` pipeline before deploying; its final optimization
+step expects the repository's JS/CanvasKit bootstrap and rejects other build modes.
 
 Workers Builds is connected to `canokeys/webauthn-developer-tool`, production
 branch `main`, with root directory `/`. Set its build command to
@@ -111,6 +118,7 @@ alone establish that an extension succeeded.
 dart run fido2:setup
 FIDO2_CRYPTO_LIBRARY="$PWD/build/fido2/native/release/libfido2_crypto.dylib" flutter test
 node --test test/browser_bridge_test.cjs
+node --test test/optimize_web_test.mjs
 flutter analyze
 ```
 
