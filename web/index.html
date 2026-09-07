@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="CanoKey WebAuthn developer workbench">
+  <meta name="theme-color" content="#147d64">
+  <title>CanoKey | WebAuthn Workbench</title>
+  <link rel="icon" href="brand.svg" type="image/svg+xml">
+  <style>
+    html,body{margin:0;background:#f6f8f8}
+    #boot{font:14px system-ui;padding:32px;color:#46534f}
+    .passkey-autofill{box-sizing:border-box;width:100%;height:100%;min-width:0;padding:12px;border:1px solid #dde5e2;border-radius:5px;background:#fff;color:#202b29;font:14px system-ui;letter-spacing:0}
+    .passkey-autofill::placeholder{color:#677673}
+    .passkey-autofill:focus{outline:2px solid #147d64;outline-offset:-2px}
+  </style>
+</head><body>
+  <div id="boot">CanoKey WebAuthn</div>
+  <script src="crypto/web/fido2_crypto_loader.js"></script>
+  <script src="webauthn.js"></script>
+  <script src="flutter_bootstrap.js" async></script>
+</body></html>

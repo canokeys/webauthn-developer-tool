@@ -1,0 +1,12 @@
+{
+  "name": "canokey-webauthn-developer-tool",
+  "private": true,
+  "scripts": {
+    "build": "flutter pub get && dart run fido2:setup --web --output=web/crypto && flutter build web --no-wasm-dry-run --no-web-resources-cdn",
+    "deploy": "npm run build && wrangler deploy",
+    "preview": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "4.129.0"
+  }
+}

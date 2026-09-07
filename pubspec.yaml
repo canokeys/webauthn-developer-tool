@@ -1,0 +1,19 @@
+name: canokey_webauthn_demo
+description: WebAuthn developer workbench with SM2 and ML-DSA verification.
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  fido2: ^2.0.0
+  cbor: ^6.3.7
+  cupertino_icons: ^1.0.8
+  web: ^1.1.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true
