@@ -2,11 +2,13 @@
   "name": "canokey-webauthn-developer-tool",
   "private": true,
   "scripts": {
+    "build:cloudflare": "bash scripts/cloudflare-build.sh",
     "build": "flutter pub get && dart run fido2:setup --web --output=web/crypto && flutter build web --no-wasm-dry-run --no-web-resources-cdn",
     "deploy": "npm run build && wrangler deploy",
     "preview": "wrangler dev"
   },
   "devDependencies": {
+    "wasm-pack": "0.15.0",
     "wrangler": "4.129.0"
   }
 }

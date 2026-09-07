@@ -52,6 +52,12 @@ locally served CanvasKit resources before publishing. To check an existing
 build locally with Workers, run `npm run preview`. Generated assets, build
 output and Cloudflare credentials are excluded from Git.
 
+Workers Builds is connected to `canokeys/webauthn-developer-tool`, production
+branch `main`, with root directory `/`. Set its build command to
+`npm run build:cloudflare` and deploy command to `npx wrangler deploy`.
+The build script installs Flutter 3.47.2 and the Rust/WASM toolchain; wasm-pack
+is pinned in npm dependencies. Pushes to `main` then build and deploy the site.
+
 The RP ID follows the hostname, so production credentials are scoped to
 `dev.canokeys.org`. Localhost credentials cannot be reused on that domain.
 
