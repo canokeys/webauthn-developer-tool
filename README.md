@@ -67,7 +67,7 @@ The RP ID follows the hostname, so production credentials are scoped to
   attachment, attestation, extensions, timeout, allow/exclude credentials.
 - ES256, Ed25519, SM2 and ML-DSA-44/65/87, through fido2's Rust/WASM backend.
 - SM2 uses explicit algorithm/curve IDs, user ID and raw/DER selection.
-  The default private-use profile is `-65537/-65537`; set the profile matching
+  The default profile matches CanoKey: algorithm ID `-54`, curve ID `9`; set the profile matching
   the credential being tested. The library assigns `-48` to ML-DSA-44 and rejects
   that identifier for SM2.
 - Extension controls for credProps, minPinLength, credProtect/enforcement,

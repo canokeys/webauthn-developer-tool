@@ -95,8 +95,8 @@ class _WorkbenchState extends State<Workbench> {
   final userId = TextEditingController();
   final challenge = TextEditingController();
   final timeout = TextEditingController(text: '60000');
-  final sm2Alg = TextEditingController(text: '-65537');
-  final sm2Curve = TextEditingController(text: '-65537');
+  final sm2Alg = TextEditingController(text: '-54');
+  final sm2Curve = TextEditingController(text: '9');
   final sm2Id = TextEditingController(text: '1234567812345678');
   final createExtensions = TextEditingController(text: '{"credProps":true}');
   final assertionExtensions = TextEditingController(text: '{}');
