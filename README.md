@@ -98,13 +98,15 @@ The RP ID follows the hostname, so production credentials are scoped to
 - Extension results distinguish client output from authenticator output and show
   returned bytes as hex/Base64/Base64URL. Missing output is reported explicitly.
 - Inspector for credentials, client/authenticator data, attestation objects,
-  COSE keys, CBOR and JSON, with hex/Base64/Base64URL views. The manual workspace
-  keeps its draft across tabs and ceremonies, marks edited input as stale, and
+  COSE keys, CBOR and JSON, with hex/Base64/Base64URL views. Inspector has its own
+  top-level page, separate from the Workbench request and result panels. It
+  keeps its draft across pages and ceremonies, marks edited input as stale, and
   uses an independent SM2 decoding profile. It accepts raw credentials, copied
   credential envelopes and exported request reports; field errors preserve the
   other decoded fields. Certificate bytes follow the selected output encoding.
 - Result, Response and Extensions refer to the same selected ceremony, including
-  when opened from History. Large decoded fields are expandable. Inspecting a
+  when opened from History. Large decoded fields are expandable and wrap within
+  the available width; short values are displayed directly. Inspecting a
   saved public key opens a read-only dialog without changing request settings.
 - Registration defaults: user verification `preferred`, discoverable credential
   `discouraged`, attestation `direct`, and credProps off. Reset restores these

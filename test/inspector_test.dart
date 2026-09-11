@@ -61,6 +61,58 @@ void main() {
   });
 
   testWidgets(
+    'expanded signatures and certificates wrap within narrow layouts',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final signature = List.filled(144, 'a').join();
+      final certificate = List.filled(1200, 'b').join();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DecodedDataView(
+                value: {
+                  'attStmt': {
+                    'alg': -7,
+                    'sig': signature,
+                    'x5c': [certificate],
+                  },
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      for (final label in ['attStmt', 'sig', 'x5c', '0']) {
+        await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+      for (final text in [signature, certificate]) {
+        final size = tester.getSize(find.text(text));
+        expect(size.width, lessThanOrEqualTo(360));
+        expect(size.height, greaterThan(20));
+        expect(size.height, lessThan(2000));
+      }
+    },
+  );
+
+  testWidgets('SM2 inputs have separate vertical spacing', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: InspectorPanel())),
+    );
+    await tester.tap(find.text('SM2 decoding profile'));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    final algorithm = tester.getRect(fields.at(1));
+    final curve = tester.getRect(fields.at(2));
+    expect(curve.top - algorithm.bottom, greaterThanOrEqualTo(16));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
     'manual edits mark results stale and formatting uses the decoded snapshot',
     (tester) async {
       await tester.pumpWidget(

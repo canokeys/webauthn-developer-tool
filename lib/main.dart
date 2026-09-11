@@ -116,6 +116,7 @@ class _WorkbenchState extends State<Workbench> {
       attachment = 'any',
       attestation = 'direct';
   String outputFormat = 'hex';
+  String workspace = 'Workbench';
   String? selectedId;
   String status = '';
   String get rawResponse =>
@@ -528,7 +529,7 @@ class _WorkbenchState extends State<Workbench> {
       busy = true;
       status = 'Waiting for authenticator';
       statusError = false;
-      if (rightTab != 'Inspector') rightTab = 'Result';
+      rightTab = 'Result';
       lastReport = null;
     });
     try {
@@ -1708,78 +1709,63 @@ class _WorkbenchState extends State<Workbench> {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: _tabs(
-              [
-                'Result',
-                'Inspector',
-                'Extensions',
-                'Response',
-                'Credentials',
-                'History',
-              ],
+              ['Result', 'Extensions', 'Response', 'Credentials', 'History'],
               rightTab,
               (v) => setState(() => rightTab = v),
             ),
           ),
         ),
         Expanded(
-          child: IndexedStack(
-            index: rightTab == 'Inspector' ? 0 : 1,
-            children: [
-              const InspectorPanel(),
-              switch (rightTab) {
-                'Result' || 'Inspector' => _resultView(),
-                'Extensions' => _extensionResults(),
-                'Credentials' => _credentialList(),
-                'History' => _history(),
-                _ => SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          child: switch (rightTab) {
+            'Result' => _resultView(),
+            'Extensions' => _extensionResults(),
+            'Credentials' => _credentialList(),
+            'History' => _history(),
+            _ => SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'Raw response',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            tooltip: 'Copy response',
-                            onPressed: rawResponse.isEmpty
-                                ? null
-                                : () => _copy(rawResponse),
-                            icon: const Icon(Icons.copy_outlined, size: 18),
-                          ),
-                          IconButton(
-                            tooltip: 'Export report',
-                            onPressed: lastReport == null
-                                ? null
-                                : () => browser.download(
-                                    'webauthn-report.json',
-                                    pretty(lastReport),
-                                  ),
-                            icon: const Icon(Icons.download_outlined, size: 18),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      if (lastReport != null)
-                        Text(
-                          '${lastReport!['time']} · ${lastReport!['result']}',
+                      const Text(
+                        'Raw response',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
                         ),
-                      if (rawResponse.isEmpty)
-                        _empty(Icons.receipt_long_outlined, 'No response yet')
-                      else
-                        _code(rawResponse),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: 'Copy response',
+                        onPressed: rawResponse.isEmpty
+                            ? null
+                            : () => _copy(rawResponse),
+                        icon: const Icon(Icons.copy_outlined, size: 18),
+                      ),
+                      IconButton(
+                        tooltip: 'Export report',
+                        onPressed: lastReport == null
+                            ? null
+                            : () => browser.download(
+                                'webauthn-report.json',
+                                pretty(lastReport),
+                              ),
+                        icon: const Icon(Icons.download_outlined, size: 18),
+                      ),
                     ],
                   ),
-                ),
-              },
-            ],
-          ),
+                  const SizedBox(height: 16),
+                  if (lastReport != null)
+                    Text('${lastReport!['time']} · ${lastReport!['result']}'),
+                  if (rawResponse.isEmpty)
+                    _empty(Icons.receipt_long_outlined, 'No response yet')
+                  else
+                    _code(rawResponse),
+                ],
+              ),
+            ),
+          },
         ),
       ],
     ),
@@ -1835,93 +1821,131 @@ class _WorkbenchState extends State<Workbench> {
                   ],
                 ),
               ),
-              Container(
-                padding: EdgeInsets.fromLTRB(
-                  wide ? 30 : 16,
-                  18,
-                  wide ? 30 : 16,
-                  16,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment(
-                              value: 'create',
-                              label: Text('Create'),
-                              icon: Icon(Icons.add, size: 18),
-                            ),
-                            ButtonSegment(
-                              value: 'get',
-                              label: Text('Assert'),
-                              icon: Icon(Icons.fingerprint, size: 18),
-                            ),
-                          ],
-                          selected: {mode},
-                          onSelectionChanged: busy
-                              ? null
-                              : (v) => _switchMode(v.first),
-                          showSelectedIcon: false,
-                          style: const ButtonStyle(
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (!ready && statusError)
-                          IconButton(
-                            tooltip: 'Retry',
-                            onPressed: _initialize,
-                            icon: const Icon(Icons.refresh, size: 18),
-                          ),
-                      ],
-                    ),
-                    if (status.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: statusError
-                            ? _errorBox(status)
-                            : Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(12),
-                                color: const Color(0xffe5f3ed),
-                                child: Text(
-                                  status,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: green,
-                                  ),
-                                ),
-                              ),
-                      ),
-                  ],
+              ColoredBox(
+                color: Colors.white,
+                child: _tabs(
+                  ['Workbench', 'Inspector'],
+                  workspace,
+                  (value) => setState(() => workspace = value),
                 ),
               ),
               Expanded(
-                child: wide
-                    ? Padding(
-                        padding: const EdgeInsets.fromLTRB(30, 0, 30, 20),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(
-                              width: (box.maxWidth * .38).clamp(360, 510),
-                              child: _left(),
-                            ),
-                            const SizedBox(width: 1),
-                            Expanded(child: _right()),
-                          ],
+                child: IndexedStack(
+                  index: workspace == 'Workbench' ? 0 : 1,
+                  children: [
+                    Column(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.fromLTRB(
+                            wide ? 30 : 16,
+                            18,
+                            wide ? 30 : 16,
+                            16,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  SegmentedButton<String>(
+                                    segments: const [
+                                      ButtonSegment(
+                                        value: 'create',
+                                        label: Text('Create'),
+                                        icon: Icon(Icons.add, size: 18),
+                                      ),
+                                      ButtonSegment(
+                                        value: 'get',
+                                        label: Text('Assert'),
+                                        icon: Icon(Icons.fingerprint, size: 18),
+                                      ),
+                                    ],
+                                    selected: {mode},
+                                    onSelectionChanged: busy
+                                        ? null
+                                        : (v) => _switchMode(v.first),
+                                    showSelectedIcon: false,
+                                    style: const ButtonStyle(
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (!ready && statusError)
+                                    IconButton(
+                                      tooltip: 'Retry',
+                                      onPressed: _initialize,
+                                      icon: const Icon(Icons.refresh, size: 18),
+                                    ),
+                                ],
+                              ),
+                              if (status.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: statusError
+                                      ? _errorBox(status)
+                                      : Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(12),
+                                          color: const Color(0xffe5f3ed),
+                                          child: Text(
+                                            status,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              color: green,
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                            ],
+                          ),
                         ),
-                      )
-                    : ListView(
-                        children: [
-                          SizedBox(height: 670, child: _left()),
-                          const SizedBox(height: 16),
-                          SizedBox(height: 740, child: _right()),
-                        ],
+                        Expanded(
+                          child: wide
+                              ? Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    30,
+                                    0,
+                                    30,
+                                    20,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      SizedBox(
+                                        width: (box.maxWidth * .38).clamp(
+                                          360,
+                                          510,
+                                        ),
+                                        child: _left(),
+                                      ),
+                                      const SizedBox(width: 1),
+                                      Expanded(child: _right()),
+                                    ],
+                                  ),
+                                )
+                              : ListView(
+                                  children: [
+                                    SizedBox(height: 670, child: _left()),
+                                    const SizedBox(height: 16),
+                                    SizedBox(height: 740, child: _right()),
+                                  ],
+                                ),
+                        ),
+                      ],
+                    ),
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: const ColoredBox(
+                          color: Colors.white,
+                          child: InspectorPanel(),
+                        ),
                       ),
+                    ),
+                  ],
+                ),
               ),
             ],
           );

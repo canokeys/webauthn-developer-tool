@@ -133,8 +133,10 @@ class _InspectorPanelState extends State<InspectorPanel> {
                 : 'Paste encoded bytes',
           ),
         ),
+        const SizedBox(height: 16),
         if (needsCose)
           ExpansionTile(
+            childrenPadding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             title: const Text('SM2 decoding profile'),
             children: [
               TextField(
@@ -144,6 +146,7 @@ class _InspectorPanelState extends State<InspectorPanel> {
                   labelText: 'SM2 algorithm ID',
                 ),
               ),
+              const SizedBox(height: 16),
               TextField(
                 controller: sm2Curve,
                 onChanged: (_) => changed(),
@@ -151,8 +154,10 @@ class _InspectorPanelState extends State<InspectorPanel> {
               ),
             ],
           ),
+        const SizedBox(height: 16),
         Wrap(
           spacing: 8,
+          runSpacing: 8,
           children: [
             FilledButton(
               onPressed: () => decode(),
@@ -234,44 +239,103 @@ class _InspectorPanelState extends State<InspectorPanel> {
   }
 }
 
-/// Collapsible fields keep large certificate and public-key data out of the way.
+/// Bounded, wrapping text avoids editable-text layout failures inside expansion
+/// tiles. Short scalar values remain visible without another disclosure level.
 class DecodedDataView extends StatelessWidget {
   final Object? value;
-  const DecodedDataView({super.key, required this.value});
+  final String path;
+  const DecodedDataView({
+    super.key,
+    required this.value,
+    this.path = 'decoded',
+  });
 
   @override
   Widget build(BuildContext context) {
-    final entries = value is Map ? (value as Map).entries.toList() : null;
-    if (entries == null) return SelectableText(pretty(value));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final entry in entries)
-          ExpansionTile(
-            key: PageStorageKey('decoded-${entry.key}'),
-            initiallyExpanded: entry.key == 'decodeErrors',
-            title: Text(
-              '${entry.key}',
-              style: entry.key == 'decodeErrors'
-                  ? TextStyle(color: Theme.of(context).colorScheme.error)
-                  : null,
-            ),
-            subtitle: entry.value is Map || entry.value is List
-                ? null
-                : Text(
-                    '${entry.value}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    final entries = value is Map
+        ? (value as Map).entries.toList()
+        : value is List
+        ? (value as List).asMap().entries.toList()
+        : null;
+    if (entries == null) return _DecodedValue(value: value);
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final entry in entries)
+            if (entry.value is! Map &&
+                entry.value is! List &&
+                '${entry.value}'.length <= 80)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${entry.key}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 6),
+                    _DecodedValue(value: entry.value),
+                  ],
+                ),
+              )
+            else
+              ExpansionTile(
+                key: PageStorageKey('$path/${entry.key}'),
+                initiallyExpanded: entry.key == 'decodeErrors',
+                title: Text(
+                  '${entry.key}',
+                  style: entry.key == 'decodeErrors'
+                      ? TextStyle(color: Theme.of(context).colorScheme.error)
+                      : null,
+                ),
+                subtitle: Text(
+                  entry.value is Map
+                      ? '${(entry.value as Map).length} fields'
+                      : entry.value is List
+                      ? '${(entry.value as List).length} items'
+                      : "${'${entry.value}'.length} characters",
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DecodedDataView(
+                    value: entry.value,
+                    path: '$path/${entry.key}',
                   ),
-            childrenPadding: const EdgeInsets.all(12),
-            expandedCrossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              entry.value is Map
-                  ? DecodedDataView(value: entry.value)
-                  : SelectableText(pretty(entry.value)),
-            ],
+                ],
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DecodedValue extends StatelessWidget {
+  final Object? value;
+  const _DecodedValue({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value is String ? value as String : pretty(value);
+    return SizedBox(
+      width: double.infinity,
+      child: SelectionArea(
+        child: Text(
+          text,
+          softWrap: true,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 14,
+            height: 1.5,
           ),
-      ],
+        ),
+      ),
     );
   }
 }
