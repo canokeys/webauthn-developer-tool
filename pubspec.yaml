@@ -7,7 +7,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  fido2: ^2.0.0
+  fido2: ^2.0.1
   cbor: ^6.3.7
   cupertino_icons: ^1.0.8
   web: ^1.1.1

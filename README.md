@@ -1,7 +1,7 @@
 # CanoKey WebAuthn Workbench
 
 Flutter Web developer tool inspired by Yubico's WebAuthn developer page. Uses
-`navigator.credentials.create/get` and the published **fido2 2.0.0** library for
+`navigator.credentials.create/get` and the **fido2 2.0.1** library for
 COSE parsing and WebAuthn validation. No desktop client, WebUSB, or local bridge.
 
 ## Run
@@ -111,9 +111,12 @@ authenticator. Imported keys are explicitly user-provided trust data. History
 and raw responses remain in memory unless exported. There is no account server
 or telemetry. The Workers deployment build serves CanvasKit from the same origin.
 
-The library completes registration only for `fmt=none`. Other attestation
-responses remain available for inspection and export but are not saved as verified
-credentials. This app does not implement certificate trust-chain verification.
+The library completes registration for `fmt=none` and `fmt=packed`, including
+packed certificate and self attestation. Packed signatures and supported leaf
+certificate profiles are verified before credentials are saved. This app does
+not implement certificate trust-chain verification: successful registration does
+not establish trust in the authenticator vendor. Other attestation formats remain
+available for inspection and export but are not saved as verified credentials.
 Actual WebAuthn algorithm availability is determined by the browser/authenticator;
 an unsupported algorithm or cancelled prompt is reported as an error.
 
