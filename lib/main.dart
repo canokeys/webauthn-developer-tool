@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:fido2/fido2_server.dart';
 import 'browser.dart' as browser;
 import 'protocol.dart';
+import 'inspector_panel.dart';
 import 'extensions_editor.dart';
 import 'request_options.dart';
 import 'passkey_autofill.dart';
@@ -97,7 +98,7 @@ class _WorkbenchState extends State<Workbench> {
   final timeout = TextEditingController(text: '60000');
   final sm2Alg = TextEditingController(text: '-54');
   final sm2Curve = TextEditingController(text: '9');
-  final createExtensions = TextEditingController(text: '{"credProps":true}');
+  final createExtensions = TextEditingController(text: '{}');
   final assertionExtensions = TextEditingController(text: '{}');
   TextEditingController get extensions =>
       mode == 'create' ? createExtensions : assertionExtensions;
@@ -105,22 +106,20 @@ class _WorkbenchState extends State<Workbench> {
   List<String> get hints => hintSelections[mode]!;
   String mediation = 'optional';
   final requestJson = TextEditingController();
-  final inspectorInput = TextEditingController();
   final algorithms = <String>['ES256'];
   final history = <Map<String, dynamic>>[];
   List<SavedCredential> credentials = [];
   late final Map<String, dynamic> env;
-  String mode = 'create', leftTab = 'Form', rightTab = 'Inspector';
+  String mode = 'create', leftTab = 'Form', rightTab = 'Result';
   String uv = 'preferred',
-      rk = 'preferred',
+      rk = 'discouraged',
       attachment = 'any',
-      attestation = 'none';
-  String inspectorType = 'Credential JSON',
-      inputFormat = 'b64u',
-      outputFormat = 'hex';
+      attestation = 'direct';
+  String outputFormat = 'hex';
   String? selectedId;
-  String status = '', rawResponse = '', decoded = '';
-  String? inspectorError;
+  String status = '';
+  String get rawResponse =>
+      lastReport?['response'] == null ? '' : pretty(lastReport!['response']);
   bool ready = false,
       busy = false,
       statusError = false,
@@ -165,7 +164,6 @@ class _WorkbenchState extends State<Workbench> {
       createExtensions,
       assertionExtensions,
       requestJson,
-      inspectorInput,
     ]) {
       c.dispose();
     }
@@ -215,14 +213,6 @@ class _WorkbenchState extends State<Workbench> {
   );
   CoseConfiguration get cose =>
       CoseConfiguration(sm2: algorithms.contains('SM2') ? sm2 : null);
-  CoseConfiguration get inspectorCose {
-    try {
-      return CoseConfiguration(sm2: sm2);
-    } catch (_) {
-      return CoseConfiguration();
-    }
-  }
-
   int algorithmId(String label) => switch (label) {
     'ES256' => -7,
     'Ed25519' => -8,
@@ -332,13 +322,13 @@ class _WorkbenchState extends State<Workbench> {
         ..add('ES256');
       hints.clear();
       uv = 'preferred';
-      rk = 'preferred';
+      rk = 'discouraged';
       attachment = 'any';
-      attestation = 'none';
+      attestation = 'direct';
       selectedId = null;
       mediation = 'optional';
       excludeExisting = false;
-      extensions.text = mode == 'create' ? '{"credProps":true}' : '{}';
+      extensions.text = '{}';
       status = '';
     });
   }
@@ -449,7 +439,7 @@ class _WorkbenchState extends State<Workbench> {
           )) {
             throw const FormatException('Selection has JSON-only fields');
           }
-          rk = s['residentKey'] ?? 'preferred';
+          rk = s['residentKey'] ?? 'discouraged';
           uv = s['userVerification'] ?? 'preferred';
           attachment = s['authenticatorAttachment'] ?? 'any';
           attestation = o['attestation'] ?? 'none';
@@ -530,6 +520,7 @@ class _WorkbenchState extends State<Workbench> {
     if (!ready || busy) return;
     String responseText = '';
     Map<String, dynamic>? options;
+    CoseConfiguration? reportCose;
     final operation = mode;
     final requestMediation = operation == 'get' ? mediation : 'optional';
     final watch = Stopwatch()..start();
@@ -537,8 +528,8 @@ class _WorkbenchState extends State<Workbench> {
       busy = true;
       status = 'Waiting for authenticator';
       statusError = false;
-      rightTab = 'Inspector';
-      rawResponse = '';
+      if (rightTab != 'Inspector') rightTab = 'Result';
+      lastReport = null;
     });
     try {
       options = leftTab == 'JSON'
@@ -572,7 +563,8 @@ class _WorkbenchState extends State<Workbench> {
           ? CoseConfiguration(
               sm2: offered.contains(int.tryParse(sm2Alg.text)) ? sm2 : null,
             )
-          : inspectorCose;
+          : CoseConfiguration();
+      reportCose = requestCose;
       // Configuration and challenge are captured before invoking the authenticator.
       final selection = snapshot['authenticatorSelection'] as Map?;
       final registrationUv = selection == null
@@ -605,10 +597,6 @@ class _WorkbenchState extends State<Workbench> {
         mediation: requestMediation,
       );
       final response = jsonDecode(responseText) as Map<String, dynamic>;
-      rawResponse = pretty(response);
-      inspectorInput.text = rawResponse;
-      inspectorType = 'Credential JSON';
-      _decodeInspector();
       if (operation == 'create') {
         final record = server!.registerComplete(
           response,
@@ -648,6 +636,7 @@ class _WorkbenchState extends State<Workbench> {
           throw const FormatException('Returned credential was not requested');
         }
         final saved = credentials[index];
+        reportCose = CoseConfiguration(sm2: saved.sm2);
         final verificationServer = Fido2Server(
           Fido2Config(
             rpId: requestRp,
@@ -701,6 +690,11 @@ class _WorkbenchState extends State<Workbench> {
         'result': status,
         'durationMs': watch.elapsedMilliseconds,
         'request': options,
+        if (reportCose?.sm2 != null)
+          'inspectionProfile': {
+            'algorithm': reportCose!.sm2!.algorithm,
+            'curve': reportCose.sm2!.curve,
+          },
         if (responseText.isNotEmpty) 'response': jsonDecode(responseText),
       };
       history.insert(0, lastReport!);
@@ -713,41 +707,6 @@ class _WorkbenchState extends State<Workbench> {
       }
       if (mounted) setState(() => busy = false);
     }
-  }
-
-  void _decodeInspector() {
-    try {
-      decoded = pretty(
-        inspect(
-          inspectorInput.text,
-          inspectorType,
-          inputFormat,
-          outputFormat,
-          inspectorCose,
-        ),
-      );
-      inspectorError = null;
-    } catch (e) {
-      decoded = '';
-      inspectorError = '$e';
-    }
-    if (mounted) setState(() {});
-  }
-
-  void _sample() {
-    inspectorType = 'Client data';
-    inputFormat = 'b64u';
-    inspectorInput.text = b64(
-      utf8.encode(
-        jsonEncode({
-          'type': 'webauthn.create',
-          'challenge': challenge.text,
-          'origin': env['origin'],
-          'crossOrigin': false,
-        }),
-      ),
-    );
-    _decodeInspector();
   }
 
   void _notice(String value, {SnackBarAction? action}) {
@@ -1006,7 +965,7 @@ class _WorkbenchState extends State<Workbench> {
         ], (v) => uv = v),
         if (mode == 'create') ...[
           _pair(
-            _select('Resident key', rk, [
+            _select('Discoverable credential', rk, [
               'preferred',
               'required',
               'discouraged',
@@ -1241,124 +1200,6 @@ class _WorkbenchState extends State<Workbench> {
     child: SelectableText(text, style: mono),
   );
 
-  Widget _inspector() => SingleChildScrollView(
-    padding: const EdgeInsets.all(24),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Text(
-              'Decode response',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const Spacer(),
-            TextButton(onPressed: _sample, child: const Text('Sample')),
-          ],
-        ),
-        const SizedBox(height: 18),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final type = _select('Input type', inspectorType, [
-              'Credential JSON',
-              'Attestation object',
-              'Authenticator data',
-              'COSE key',
-              'Client data',
-              'CBOR',
-              'JSON',
-            ], (v) => inspectorType = v);
-            final format = _select('Input encoding', inputFormat, [
-              'b64u',
-              'b64',
-              'hex',
-            ], (v) => inputFormat = v);
-            return constraints.maxWidth < 380
-                ? Column(children: [type, const SizedBox(height: 12), format])
-                : _pair(type, format);
-          },
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: inspectorInput,
-          style: mono,
-          minLines: 4,
-          maxLines: 8,
-          decoration: const InputDecoration(
-            hintText: 'Paste credential JSON or encoded data',
-            alignLabelWithHint: true,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            FilledButton.icon(
-              onPressed: _decodeInspector,
-              icon: const Icon(Icons.data_object, size: 18),
-              label: const Text('Decode'),
-            ),
-            IconButton(
-              tooltip: 'Clear inspector',
-              onPressed: () => setState(() {
-                inspectorInput.clear();
-                decoded = '';
-                inspectorError = null;
-              }),
-              icon: const Icon(Icons.clear_all),
-            ),
-          ],
-        ),
-        const SizedBox(height: 28),
-        Row(
-          children: [
-            const Text(
-              'DECODED DATA',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: muted,
-              ),
-            ),
-            const Spacer(),
-            for (final f in ['hex', 'b64', 'b64u'])
-              Padding(
-                padding: const EdgeInsets.only(left: 3),
-                child: ChoiceChip(
-                  label: Text(f, style: const TextStyle(fontSize: 13)),
-                  selected: outputFormat == f,
-                  showCheckmark: false,
-                  onSelected: (_) {
-                    setState(() => outputFormat = f);
-                    if (inspectorInput.text.isNotEmpty) _decodeInspector();
-                  },
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (inspectorError != null)
-          _errorBox(inspectorError!)
-        else if (decoded.isNotEmpty) ...[
-          Align(
-            alignment: Alignment.centerRight,
-            child: IconButton(
-              tooltip: 'Copy decoded data',
-              onPressed: () => _copy(decoded),
-              icon: const Icon(Icons.copy_outlined, size: 18),
-            ),
-          ),
-          _code(decoded),
-        ] else
-          _empty(Icons.data_object, 'No decoded data'),
-      ],
-    ),
-  );
-
   Widget _errorBox(String text) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(14),
@@ -1537,17 +1378,32 @@ class _WorkbenchState extends State<Workbench> {
                     IconButton(
                       tooltip: 'Inspect public key',
                       onPressed: () {
-                        setState(() {
-                          rightTab = 'Inspector';
-                          inspectorType = 'COSE key';
-                          inputFormat = 'b64u';
-                          inspectorInput.text = saved.toJson()['key'];
-                          if (saved.sm2 != null) {
-                            sm2Alg.text = '${saved.sm2!.algorithm}';
-                            sm2Curve.text = '${saved.sm2!.curve}';
-                          }
-                        });
-                        _decodeInspector();
+                        showDialog<void>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text('${saved.username} · Public key'),
+                            content: SizedBox(
+                              width: 560,
+                              child: SingleChildScrollView(
+                                child: DecodedDataView(
+                                  value: inspect(
+                                    saved.toJson()['key'],
+                                    'COSE key',
+                                    'b64u',
+                                    outputFormat,
+                                    CoseConfiguration(sm2: saved.sm2),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.data_object, size: 18),
                     ),
@@ -1674,10 +1530,7 @@ class _WorkbenchState extends State<Workbench> {
           onTap: () {
             setState(() {
               lastReport = entry;
-              rawResponse = entry['response'] == null
-                  ? ''
-                  : pretty(entry['response']);
-              rightTab = 'Response';
+              rightTab = 'Result';
             });
           },
         ),
@@ -1697,7 +1550,10 @@ class _WorkbenchState extends State<Workbench> {
     String? error;
     try {
       authenticator = jsonValue(
-        AuthenticatorData.parse(responseAuthenticatorData(response)).extensions,
+        AuthenticatorData.parse(
+          responseAuthenticatorData(response),
+          configuration: _reportConfiguration(report!),
+        ).extensions,
         format: outputFormat,
       );
     } catch (e) {
@@ -1708,6 +1564,8 @@ class _WorkbenchState extends State<Workbench> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('${report!['time']} · ${report['operation']}'),
+          const SizedBox(height: 12),
           const Text(
             'Extension results',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
@@ -1767,6 +1625,78 @@ class _WorkbenchState extends State<Workbench> {
     );
   }
 
+  CoseConfiguration _reportConfiguration(Map<String, dynamic> report) {
+    final profile = report['inspectionProfile'] as Map?;
+    return CoseConfiguration(
+      sm2: profile == null
+          ? null
+          : Sm2Configuration(
+              algorithm: profile['algorithm'],
+              curve: profile['curve'],
+              allowUnassignedIdentifiers: true,
+            ),
+    );
+  }
+
+  Widget _resultView() {
+    final report = lastReport;
+    if (report == null) {
+      return _empty(
+        Icons.data_object,
+        busy ? 'Waiting for authenticator' : 'No request selected',
+      );
+    }
+    Object? result;
+    String? error;
+    if (report['response'] != null) {
+      try {
+        result = inspect(
+          pretty(report['response']),
+          'Credential JSON',
+          'b64u',
+          outputFormat,
+          _reportConfiguration(report),
+        );
+      } catch (e) {
+        error = '$e';
+      }
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Request result',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          Text('${report['time']} · ${report['operation']}'),
+          const SizedBox(height: 12),
+          Text('${report['result']}'),
+          if (report['operation'] == 'create' && report['verified'] == true)
+            const Text('Certificate-chain trust is not evaluated.'),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final format in ['hex', 'b64', 'b64u'])
+                ChoiceChip(
+                  label: Text(format),
+                  selected: outputFormat == format,
+                  onSelected: (_) => setState(() => outputFormat = format),
+                ),
+            ],
+          ),
+          if (error != null) _errorBox(error),
+          if (result != null) DecodedDataView(value: result),
+          if (report['response'] == null)
+            const Text('No authenticator response was returned.'),
+        ],
+      ),
+    );
+  }
+
   Widget _right() => ColoredBox(
     color: Colors.white,
     child: Column(
@@ -1778,61 +1708,78 @@ class _WorkbenchState extends State<Workbench> {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: _tabs(
-              ['Inspector', 'Extensions', 'Response', 'Credentials', 'History'],
+              [
+                'Result',
+                'Inspector',
+                'Extensions',
+                'Response',
+                'Credentials',
+                'History',
+              ],
               rightTab,
               (v) => setState(() => rightTab = v),
             ),
           ),
         ),
         Expanded(
-          child: switch (rightTab) {
-            'Inspector' => _inspector(),
-            'Extensions' => _extensionResults(),
-            'Credentials' => _credentialList(),
-            'History' => _history(),
-            _ => SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          child: IndexedStack(
+            index: rightTab == 'Inspector' ? 0 : 1,
+            children: [
+              const InspectorPanel(),
+              switch (rightTab) {
+                'Result' || 'Inspector' => _resultView(),
+                'Extensions' => _extensionResults(),
+                'Credentials' => _credentialList(),
+                'History' => _history(),
+                _ => SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Raw response',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                      Row(
+                        children: [
+                          const Text(
+                            'Raw response',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            tooltip: 'Copy response',
+                            onPressed: rawResponse.isEmpty
+                                ? null
+                                : () => _copy(rawResponse),
+                            icon: const Icon(Icons.copy_outlined, size: 18),
+                          ),
+                          IconButton(
+                            tooltip: 'Export report',
+                            onPressed: lastReport == null
+                                ? null
+                                : () => browser.download(
+                                    'webauthn-report.json',
+                                    pretty(lastReport),
+                                  ),
+                            icon: const Icon(Icons.download_outlined, size: 18),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (lastReport != null)
+                        Text(
+                          '${lastReport!['time']} · ${lastReport!['result']}',
                         ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: 'Copy response',
-                        onPressed: rawResponse.isEmpty
-                            ? null
-                            : () => _copy(rawResponse),
-                        icon: const Icon(Icons.copy_outlined, size: 18),
-                      ),
-                      IconButton(
-                        tooltip: 'Export report',
-                        onPressed: lastReport == null
-                            ? null
-                            : () => browser.download(
-                                'webauthn-report.json',
-                                pretty(lastReport),
-                              ),
-                        icon: const Icon(Icons.download_outlined, size: 18),
-                      ),
+                      if (rawResponse.isEmpty)
+                        _empty(Icons.receipt_long_outlined, 'No response yet')
+                      else
+                        _code(rawResponse),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  if (rawResponse.isEmpty)
-                    _empty(Icons.receipt_long_outlined, 'No response yet')
-                  else
-                    _code(rawResponse),
-                ],
-              ),
-            ),
-          },
+                ),
+              },
+            ],
+          ),
         ),
       ],
     ),

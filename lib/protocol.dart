@@ -18,6 +18,9 @@ Object? canonicalJson(Object? value) {
 
 Object? jsonValue(Object? value, {String format = 'b64u'}) {
   if (value is CborBytes) return binary(value.bytes, format);
+  if (value is CborList) {
+    return value.map((e) => jsonValue(e, format: format)).toList();
+  }
   if (value is CborMap) {
     return {
       for (final e in value.entries)
@@ -89,6 +92,20 @@ Map<String, dynamic> inspectAuth(
   };
 }
 
+/// Accept raw browser responses, copied inspector envelopes and request reports.
+Map<String, dynamic> credentialFromJson(Object? input) {
+  if (input is! Map<String, dynamic>) {
+    throw const FormatException('Expected a credential JSON object');
+  }
+  final value =
+      input['credential'] ??
+      (input.containsKey('operation') ? input['response'] : input);
+  if (value is! Map<String, dynamic> || value['response'] is! Map) {
+    throw const FormatException('Missing credential response');
+  }
+  return value;
+}
+
 Object? inspect(
   String input,
   String type,
@@ -99,36 +116,68 @@ Object? inspect(
   if (input.trim().isEmpty) throw const FormatException('No input');
   if (input.length > 1000000) throw const FormatException('Input exceeds 1 MB');
   if (type == 'Credential JSON') {
-    final value = jsonDecode(input) as Map<String, dynamic>;
-    final response = value['response'] as Map<String, dynamic>?;
-    if (response == null) {
+    final value = credentialFromJson(jsonDecode(input));
+    final response = value['response'];
+    if (response is! Map) {
       throw const FormatException('Missing credential response');
     }
-    final result = <String, dynamic>{'credential': value};
-    result['clientExtensionResults'] = inspectClientExtensions(
-      value['clientExtensionResults'] as Map? ?? {},
-      outputFormat,
+    final result = <String, dynamic>{
+      'credentialInfo': {
+        for (final key in ['id', 'rawId', 'type', 'authenticatorAttachment'])
+          if (value.containsKey(key)) key: value[key],
+        if (response['transports'] != null)
+          'transports': response['transports'],
+      },
+    };
+    final errors = <String, String>{};
+    void field(String name, Object? Function() decode) {
+      try {
+        result[name] = decode();
+      } catch (e) {
+        errors[name] = '$e';
+      }
+    }
+
+    field(
+      'clientExtensionResults',
+      () => inspectClientExtensions(
+        value['clientExtensionResults'] as Map? ?? {},
+        outputFormat,
+      ),
     );
-    result['clientDataJSON'] = jsonDecode(
-      utf8.decode(unb64(response['clientDataJSON'] as String)),
+    field(
+      'clientDataJSON',
+      () =>
+          jsonDecode(utf8.decode(unb64(response['clientDataJSON'] as String))),
     );
     if (response['attestationObject'] != null) {
-      result['attestationObject'] = inspect(
-        response['attestationObject'],
-        'Attestation object',
-        'b64u',
-        outputFormat,
-        config,
+      field(
+        'attestationObject',
+        () => inspect(
+          response['attestationObject'],
+          'Attestation object',
+          'b64u',
+          outputFormat,
+          config,
+        ),
       );
-    } else if (response['authenticatorData'] != null) {
-      result['authenticatorData'] = inspectAuth(
-        unb64(response['authenticatorData']),
-        config,
-        outputFormat,
-      );
-      result['signatureBytes'] = unb64(response['signature']).length;
-      result['signature'] = binary(unb64(response['signature']), outputFormat);
     }
+    if (response['authenticatorData'] != null) {
+      field(
+        'authenticatorData',
+        () => inspectAuth(
+          unb64(response['authenticatorData']),
+          config,
+          outputFormat,
+        ),
+      );
+      field(
+        'signature',
+        () => binary(unb64(response['signature']), outputFormat),
+      );
+      field('signatureBytes', () => unb64(response['signature']).length);
+    }
+    if (errors.isNotEmpty) result['decodeErrors'] = errors;
     return result;
   }
   if (type == 'JSON') return jsonDecode(input);

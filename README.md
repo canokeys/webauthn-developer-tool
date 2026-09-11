@@ -98,7 +98,17 @@ The RP ID follows the hostname, so production credentials are scoped to
 - Extension results distinguish client output from authenticator output and show
   returned bytes as hex/Base64/Base64URL. Missing output is reported explicitly.
 - Inspector for credentials, client/authenticator data, attestation objects,
-  COSE keys, CBOR and JSON, with hex/Base64/Base64URL views.
+  COSE keys, CBOR and JSON, with hex/Base64/Base64URL views. The manual workspace
+  keeps its draft across tabs and ceremonies, marks edited input as stale, and
+  uses an independent SM2 decoding profile. It accepts raw credentials, copied
+  credential envelopes and exported request reports; field errors preserve the
+  other decoded fields. Certificate bytes follow the selected output encoding.
+- Result, Response and Extensions refer to the same selected ceremony, including
+  when opened from History. Large decoded fields are expandable. Inspecting a
+  saved public key opens a read-only dialog without changing request settings.
+- Registration defaults: user verification `preferred`, discoverable credential
+  `discouraged`, attestation `direct`, and credProps off. Reset restores these
+  defaults; the WebAuthn JSON property remains `residentKey`.
 - Verified registrations persist locally. Credentials support export/import,
   local removal with undo, assertion verification, and counter updates.
 - Execution history and request/response report export. Challenges rotate after
